@@ -24,7 +24,7 @@ mp_face_mesh = mp.solutions.face_mesh
 
 TITLE = 'MediaPipe Face Mesh'
 DESCRIPTION = 'https://google.github.io/mediapipe/'
-ARTICLE = None
+ARTICLE = '<center><img src="https://visitor-badge.glitch.me/badge?page_id=hysts.mediapipe-face-mesh" alt="visitor badge"/></center>'
 
 TOKEN = os.environ['TOKEN']
 
