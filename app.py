@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import argparse
 import os
 import pathlib
+import shlex
 import subprocess
 import tarfile
 
 if os.environ.get('SYSTEM') == 'spaces':
-    subprocess.call('pip uninstall -y opencv-python'.split())
-    subprocess.call('pip uninstall -y opencv-python-headless'.split())
-    subprocess.call('pip install opencv-python-headless==4.5.5.64'.split())
+    subprocess.call(shlex.split('pip uninstall -y opencv-python'))
+    subprocess.call(shlex.split('pip uninstall -y opencv-python-headless'))
+    subprocess.call(
+        shlex.split('pip install opencv-python-headless==4.5.5.64'))
 
 import gradio as gr
 import huggingface_hub
@@ -24,22 +25,8 @@ mp_face_mesh = mp.solutions.face_mesh
 
 TITLE = 'MediaPipe Face Mesh'
 DESCRIPTION = 'https://google.github.io/mediapipe/'
-ARTICLE = '<center><img src="https://visitor-badge.glitch.me/badge?page_id=hysts.mediapipe-face-mesh" alt="visitor badge"/></center>'
 
-TOKEN = os.environ['TOKEN']
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--theme', type=str)
-    parser.add_argument('--live', action='store_true')
-    parser.add_argument('--share', action='store_true')
-    parser.add_argument('--port', type=int)
-    parser.add_argument('--disable-queue',
-                        dest='enable_queue',
-                        action='store_false')
-    parser.add_argument('--allow-flagging', type=str, default='never')
-    return parser.parse_args()
+HF_TOKEN = os.getenv('HF_TOKEN')
 
 
 def load_sample_images() -> list[pathlib.Path]:
@@ -52,7 +39,7 @@ def load_sample_images() -> list[pathlib.Path]:
             path = huggingface_hub.hf_hub_download(dataset_repo,
                                                    name,
                                                    repo_type='dataset',
-                                                   use_auth_token=TOKEN)
+                                                   use_auth_token=HF_TOKEN)
             with tarfile.open(path) as f:
                 f.extractall(image_dir.as_posix())
     return sorted(image_dir.rglob('*.jpg'))
@@ -104,42 +91,30 @@ def run(
     return res[:, :, ::-1]
 
 
-def main():
-    args = parse_args()
+image_paths = load_sample_images()
+examples = [[path.as_posix(), 5, 0.5, True, True, True]
+            for path in image_paths]
 
-    image_paths = load_sample_images()
-    examples = [[path.as_posix(), 5, 0.5, True, True, True]
-                for path in image_paths]
-
-    gr.Interface(
-        run,
-        [
-            gr.inputs.Image(type='numpy', label='Input'),
-            gr.inputs.Slider(
-                0, 10, step=1, default=5, label='Max Number of Faces'),
-            gr.inputs.Slider(0,
-                             1,
-                             step=0.05,
-                             default=0.5,
-                             label='Minimum Detection Confidence'),
-            gr.inputs.Checkbox(default=True, label='Show Tesselation'),
-            gr.inputs.Checkbox(default=True, label='Show Contours'),
-            gr.inputs.Checkbox(default=True, label='Show Irises'),
-        ],
-        gr.outputs.Image(type='numpy', label='Output'),
-        examples=examples,
-        title=TITLE,
-        description=DESCRIPTION,
-        article=ARTICLE,
-        theme=args.theme,
-        allow_flagging=args.allow_flagging,
-        live=args.live,
-    ).launch(
-        enable_queue=args.enable_queue,
-        server_port=args.port,
-        share=args.share,
-    )
-
-
-if __name__ == '__main__':
-    main()
+gr.Interface(
+    fn=run,
+    inputs=[
+        gr.Image(label='Input', type='numpy'),
+        gr.Slider(label='Max Number of Faces',
+                  minimum=0,
+                  maximum=10,
+                  step=1,
+                  value=5),
+        gr.Slider(label='Minimum Detection Confidence',
+                  minimum=0,
+                  maximum=1,
+                  step=0.05,
+                  value=0.5),
+        gr.Checkbox(label='Show Tesselation', value=True),
+        gr.Checkbox(label='Show Contours', value=True),
+        gr.Checkbox(label='Show Irises', value=True),
+    ],
+    outputs=gr.Image(label='Output', type='numpy'),
+    examples=examples,
+    title=TITLE,
+    description=DESCRIPTION,
+).launch(show_api=False)
