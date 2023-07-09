@@ -2,20 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
-import shlex
-import subprocess
-import tarfile
-
-if os.environ.get('SYSTEM') == 'spaces':
-    subprocess.call(shlex.split('pip uninstall -y opencv-python'))
-    subprocess.call(shlex.split('pip uninstall -y opencv-python-headless'))
-    subprocess.call(
-        shlex.split('pip install opencv-python-headless==4.5.5.64'))
 
 import gradio as gr
-import huggingface_hub
 import mediapipe as mp
 import numpy as np
 
@@ -25,24 +14,6 @@ mp_face_mesh = mp.solutions.face_mesh
 
 TITLE = 'MediaPipe Face Mesh'
 DESCRIPTION = 'https://google.github.io/mediapipe/'
-
-HF_TOKEN = os.getenv('HF_TOKEN')
-
-
-def load_sample_images() -> list[pathlib.Path]:
-    image_dir = pathlib.Path('images')
-    if not image_dir.exists():
-        image_dir.mkdir()
-        dataset_repo = 'hysts/input-images'
-        filenames = ['001.tar', '005.tar']
-        for name in filenames:
-            path = huggingface_hub.hf_hub_download(dataset_repo,
-                                                   name,
-                                                   repo_type='dataset',
-                                                   use_auth_token=HF_TOKEN)
-            with tarfile.open(path) as f:
-                f.extractall(image_dir.as_posix())
-    return sorted(image_dir.rglob('*.jpg'))
 
 
 def run(
@@ -91,9 +62,8 @@ def run(
     return res[:, :, ::-1]
 
 
-image_paths = load_sample_images()
-examples = [[path.as_posix(), 5, 0.5, True, True, True]
-            for path in image_paths]
+image_paths = sorted(pathlib.Path('images').rglob('*.jpg'))
+examples = [[path, 5, 0.5, True, True, True] for path in image_paths]
 
 gr.Interface(
     fn=run,
@@ -113,8 +83,8 @@ gr.Interface(
         gr.Checkbox(label='Show Contours', value=True),
         gr.Checkbox(label='Show Irises', value=True),
     ],
-    outputs=gr.Image(label='Output', type='numpy'),
+    outputs=gr.Image(label='Output', height=500),
     examples=examples,
     title=TITLE,
     description=DESCRIPTION,
-).launch(show_api=False)
+).queue().launch()
